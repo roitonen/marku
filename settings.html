@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Settings</title>
+    <script>
+      try {
+        const v = JSON.parse(localStorage.getItem('marku-theme-cache') || '{}');
+        const r = document.documentElement;
+        for (const [k, val] of Object.entries(v)) {
+          if (k.startsWith('--')) r.style.setProperty(k, val);
+        }
+        if (v.body_bg) r.style.setProperty('background', v.body_bg);
+      } catch(e) {}
+      if (!/Mac/.test(navigator.platform)) document.documentElement.classList.add('native-titlebar');
+      document.documentElement.style.opacity = '0';
+    </script>
+    <link rel="stylesheet" href="/src/settings-window.css" />
+    <script type="module" src="/src/settings-window.ts" defer></script>
+  </head>
+  <body>
+    <div id="titlebar" data-tauri-drag-region>
+      <span id="window-title">Settings</span>
+    </div>
+    <form id="settings-form">
+      <div id="settings-tabs" role="tablist">
+        <button type="button" class="tab-btn active" data-tab="general">General</button>
+        <button type="button" class="tab-btn" data-tab="appearance">Appearance</button>
+      </div>
+
+      <div class="tab-pane active" data-pane="general">
+        <section>
+          <h3>Security</h3>
+          <label class="checkbox-label"><input id="s-escape-unsafe-html" type="checkbox" /> Escape unsafe HTML tags (show &lt;style&gt;, &lt;script&gt;, etc. as text)</label>
+        </section>
+        <section>
+          <h3>Window</h3>
+          <label class="checkbox-label"><input id="s-remember-window" type="checkbox" /> Remember size and position</label>
+        </section>
+        <section>
+          <h3>Recent Files</h3>
+          <label>Store (0 = disabled)<input id="s-recent-store" type="number" min="0" max="50" /></label>
+          <label>Show in menu<input id="s-recent-show" type="number" min="0" max="15" /></label>
+          <button type="button" id="s-clear-recent" class="danger-btn">Clear Recent Files</button>
+        </section>
+      </div>
+
+      <div class="tab-pane" data-pane="appearance">
+        <section>
+          <h3>Theme</h3>
+          <label>Theme<select id="s-code-theme"></select></label>
+          <label>Mermaid<select id="s-mermaid-theme">
+            <option value="default">Default</option>
+            <option value="neutral">Neutral</option>
+            <option value="dark">Dark</option>
+            <option value="forest">Forest</option>
+          </select></label>
+          <label>Code Syntax<select id="s-prism-theme"></select></label>
+          <label>Font Smoothing<select id="s-font-smoothing">
+            <option value="auto">Auto (system)</option>
+            <option value="antialiased">Antialiased (thinner)</option>
+            <option value="subpixel-antialiased">Subpixel (thicker)</option>
+          </select></label>
+        </section>
+        <section>
+          <h3>Content Width</h3>
+          <label class="slider-label">
+            <span id="s-width-val">720</span> px
+            <input id="s-content-width" type="range" min="720" max="1600" step="10" />
+          </label>
+        </section>
+        <section>
+          <h3>Preview</h3>
+          <label>Font Family<input id="s-preview-font" type="text" spellcheck="false" /></label>
+          <label>Font Size<input id="s-preview-size" type="number" min="8" max="48" /></label>
+          <label>Line Height<input id="s-preview-lh" type="number" min="1" max="3" step="0.1" /></label>
+        </section>
+        <section>
+          <h3>Code</h3>
+          <label>Font Family<input id="s-code-font" type="text" spellcheck="false" /></label>
+          <label>Font Size<input id="s-code-size" type="number" min="8" max="48" /></label>
+          <label>Line Height<input id="s-code-lh" type="number" min="1" max="3" step="0.1" /></label>
+          <label class="checkbox-label"><input id="s-word-wrap" type="checkbox" /> Word Wrap</label>
+        </section>
+      </div>
+
+      <footer>
+        <button type="button" id="btn-reset" class="danger-btn">Reset to Defaults</button>
+        <div class="spacer"></div>
+        <button type="button" id="btn-close">Close</button>
+        <button type="submit" id="btn-save" disabled>Save</button>
+      </footer>
+    </form>
+  </body>
+</html>

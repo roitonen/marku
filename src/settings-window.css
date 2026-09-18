@@ -1,0 +1,243 @@
+:root {
+  color-scheme: light dark;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--ui-bg, Canvas);
+  color: var(--ui-fg, CanvasText);
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+}
+
+#titlebar {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+#window-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ui-fg, CanvasText);
+  opacity: 0.8;
+}
+
+#settings-form {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 40px);
+  overflow-y: auto;
+}
+
+/* Windows/Linux: native title bar, so drop our custom one and reclaim its height. */
+html.native-titlebar #titlebar { display: none; }
+html.native-titlebar #settings-form { min-height: 100vh; }
+
+#settings-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 0 20px;
+  border-bottom: 1px solid color-mix(in srgb, var(--ui-fg, CanvasText) 15%, transparent);
+  flex-shrink: 0;
+}
+
+.tab-btn {
+  appearance: none;
+  -webkit-appearance: none;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  padding: 10px 12px;
+  min-width: 0;
+  font-family: inherit;
+  font-size: 13px;
+  color: color-mix(in srgb, var(--ui-fg, CanvasText) 55%, transparent);
+  cursor: pointer;
+}
+
+.tab-btn.active {
+  color: var(--ui-fg, CanvasText);
+  border-bottom-color: var(--preview-caret, #0969da);
+  font-weight: 600;
+}
+
+.tab-pane {
+  display: none;
+  flex-direction: column;
+}
+
+.tab-pane.active {
+  display: flex;
+}
+
+section {
+  padding: 12px 20px;
+  border-bottom: 1px solid color-mix(in srgb, var(--ui-fg, CanvasText) 15%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tab-pane section:last-child {
+  border-bottom: none;
+}
+
+h3 {
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: color-mix(in srgb, var(--ui-fg, CanvasText) 50%, transparent);
+}
+
+label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+label.checkbox-label {
+  justify-content: flex-start;
+  gap: 6px;
+}
+
+
+input[type="text"],
+input[type="number"],
+select {
+  appearance: auto;
+  -webkit-appearance: auto;
+  border: 1px solid color-mix(in srgb, var(--ui-fg, CanvasText) 25%, transparent);
+  border-radius: 5px;
+  padding: 3px 6px;
+  font-size: 13px;
+  font-family: inherit;
+  background: color-mix(in srgb, var(--ui-fg, CanvasText) 6%, var(--ui-bg, Field));
+  color: var(--ui-fg, FieldText);
+  min-width: 80px;
+}
+
+input[type="text"] {
+  min-width: 200px;
+}
+
+input[type="checkbox"] {
+  appearance: auto;
+  -webkit-appearance: auto;
+  width: 16px;
+  height: 16px;
+}
+
+input[type="range"] {
+  appearance: auto;
+  -webkit-appearance: auto;
+  flex: 1;
+  accent-color: var(--ui-fg, CanvasText);
+}
+
+input:disabled,
+select:disabled {
+  opacity: 0.4;
+}
+
+.slider-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.slider-label span {
+  min-width: 32px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+button {
+  appearance: auto;
+  -webkit-appearance: auto;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 6px 20px;
+  min-width: 80px;
+}
+
+.danger-btn {
+  appearance: none;
+  -webkit-appearance: none;
+  background: color-mix(in srgb, var(--preview-caret, CanvasText) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--preview-caret, CanvasText) 40%, transparent);
+  color: var(--ui-fg, CanvasText);
+  width: 180px;
+  height: 28px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-family: inherit;
+  text-align: center;
+  align-self: flex-start;
+}
+
+.danger-btn:hover {
+  background: color-mix(in srgb, var(--preview-caret, CanvasText) 16%, transparent);
+}
+
+#btn-close,
+#btn-save {
+  appearance: none;
+  -webkit-appearance: none;
+  height: 32px;
+  padding: 0 16px;
+  border-radius: 8px;
+}
+
+/* Secondary action - neutral, follows the theme text color. */
+#btn-close {
+  background: color-mix(in srgb, var(--ui-fg, CanvasText) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ui-fg, CanvasText) 20%, transparent);
+  color: var(--ui-fg, CanvasText);
+}
+
+#btn-close:hover {
+  background: color-mix(in srgb, var(--ui-fg, CanvasText) 18%, transparent);
+}
+
+/* Primary action - caret-colored fill so it stands out on any theme. */
+#btn-save {
+  background: var(--preview-caret, #0969da);
+  border: none;
+  color: var(--ui-bg, #fff);
+  font-weight: 600;
+}
+
+#btn-save:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-top: 1px solid color-mix(in srgb, var(--ui-fg, CanvasText) 15%, transparent);
+  margin-top: auto;
+}
+
+.spacer {
+  flex: 1;
+}

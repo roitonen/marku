@@ -1,0 +1,811 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+:root {
+  --preview-font-family: system-ui;
+  --preview-font-size: 16px;
+  --preview-line-height: 1.7;
+  --content-max-width: 720px;
+  --code-font-family: ui-monospace;
+  --code-font-size: 14px;
+  --code-line-height: 1.5;
+
+  /* Heights of the window chrome, used to place the floating find panel.
+     Set to 0 when hidden: native-titlebar drops the custom titlebar; a future
+     "hide tab bar" toggle should set --tabbar-h: 0 (add it on html). */
+  --titlebar-h: 40px;
+  --tabbar-h: 30px;
+}
+
+html.native-titlebar { --titlebar-h: 0px; }
+
+/* Shift+Cmd+T hides the tab bar; zeroing the height var lets the find panel
+   (and anything anchored to it) follow upward. */
+html.tabbar-hidden { --tabbar-h: 0px; }
+html.tabbar-hidden #tab-bar { display: none; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--ui-bg, #fafaf9);
+  color: var(--ui-fg, #1a1918);
+  font-family: var(--preview-font-family);
+  font-size: var(--preview-font-size);
+  -webkit-font-smoothing: var(--font-smoothing, auto);
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* Tab bar */
+
+#titlebar {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+/* Windows/Linux have a native title bar - drop our custom one. */
+html.native-titlebar #titlebar { display: none; }
+
+#window-title {
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ui-fg, #1a1918);
+  opacity: 0.8;
+}
+
+#tab-bar {
+  display: flex;
+  align-items: flex-end;
+  padding: 0 8px;
+  gap: 2px;
+  flex-shrink: 0;
+  background: var(--ui-bg, #fafaf9);
+  color: var(--ui-fg, #1a1918);
+  user-select: none;
+}
+
+
+#tabs-list {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid color-mix(in srgb, var(--ui-fg, #1a1918) 15%, transparent);
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  color: color-mix(in srgb, var(--ui-fg, #1a1918) 60%, transparent);
+  cursor: pointer;
+  background: color-mix(in srgb, var(--ui-fg, #1a1918) 5%, var(--ui-bg, #fafaf9));
+  white-space: nowrap;
+}
+
+.tab.active {
+  background: var(--ui-bg, #fafaf9);
+  color: var(--ui-fg, #4a4642);
+  border: 1px solid color-mix(in srgb, var(--ui-fg, #1a1918) 25%, transparent);
+  border-top: none;
+}
+
+.tab-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #c0bbb6;
+  font-size: 16px;
+  padding: 0;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.tab-close:hover {
+  color: #1a1918;
+}
+
+#new-tab-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: color-mix(in srgb, var(--ui-fg, #1a1918) 50%, transparent);
+  font-size: 20px;
+  padding: 0 8px;
+  height: 30px;
+  line-height: 30px;
+  user-select: none;
+}
+
+#new-tab-btn:hover {
+  color: var(--ui-fg, #1a1918);
+}
+
+/* Editor container */
+
+#editor-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 48px 0;
+  cursor: text;
+  /* Layout containment makes this the containing block for position:fixed in
+     rendered content, so a `<div style="position:fixed;inset:0">` covers only
+     the editor area, never the toolbar/tabs. No `paint` - it would clip
+     overflowing UI; layout alone traps the overlay without clipping. */
+  contain: layout;
+}
+
+/* Print / export to PDF (window.print)
+   Drop all editor chrome and print only the rendered document. print-color-
+   adjust:exact keeps theme backgrounds/colors (code, alerts, themes) so the
+   PDF looks like the on-screen preview. */
+@media print {
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  #titlebar, #tab-bar, #status-bar, #source-view,
+  #save-dialog, #confirm-dialog, #recent-modal { display: none !important; }
+  .marku-textarea { display: none !important; }
+
+  html, body { height: auto; }
+  #app { display: block; height: auto; }
+  #editor-container { flex: none; overflow: visible; padding: 0; }
+  #editor-container > .markdown-body { min-height: 0; }
+  .markdown-body { max-width: none; }
+
+  /* Keep a block from splitting across pages where it can fit on one. */
+  .marku-block { break-inside: avoid; }
+}
+
+/* stretch document div to fill container so clicks land inside */
+#editor-container > .markdown-body {
+  min-height: calc(100vh - 22px - 96px); /* viewport - status bar - top/bottom padding */
+}
+
+/* Document */
+
+.markdown-body {
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+  padding: 0 32px;
+}
+
+/* Block wrapper */
+
+.marku-block {
+  margin: 0;
+  padding: 0;
+  position: relative;
+  display: flow-root;
+  cursor: text;
+  min-height: 12px;
+}
+
+.marku-block.empty-line {
+  min-height: 1.4em;
+  cursor: text;
+}
+
+/* Markdown element spacing */
+
+.marku-block h1,
+.marku-block h2,
+.marku-block h3,
+.marku-block h4,
+.marku-block h5,
+.marku-block h6 {
+  margin: 0;
+  font-weight: bold;
+  line-height: 1.3;
+  color: var(--preview-heading, #1a1918);
+}
+
+.marku-block h1 { font-size: 2.25em; }
+.marku-block h2 { font-size: 2em; }
+.marku-block h3 { font-size: 1.75em; }
+.marku-block h4 { font-size: 1.5em; }
+.marku-block h5 { font-size: 1.25em; }
+.marku-block h6 { font-size: 1em; }
+
+.marku-block p {
+  margin: 0;
+  line-height: var(--preview-line-height);
+}
+
+.marku-block ul,
+.marku-block ol {
+  margin: 0;
+  padding-left: 1.8em;
+  line-height: var(--preview-line-height);
+}
+
+.marku-block li + li {
+  margin-top: 0.15em;
+}
+
+.marku-block input[type="checkbox"] {
+  margin-right: 0.4em;
+  accent-color: var(--preview-checkbox);
+}
+
+.markdown-body ::selection,
+.marku-textarea::selection {
+  background: var(--preview-selection);
+}
+
+.marku-block pre {
+  margin: 0;
+  padding: 1em;
+  background: var(--preview-code-bg, #f0eeec);
+  border-radius: 6px;
+  overflow-x: auto;
+  font-size: var(--code-font-size);
+  line-height: var(--code-line-height);
+}
+
+body.word-wrap .marku-block pre {
+  overflow-x: visible;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.marku-block code {
+  font-family: var(--code-font-family);
+}
+
+.marku-block :not(pre) > code {
+  background: var(--preview-code-bg, #ece9e6);
+  padding: 0.15em 0.35em;
+  border-radius: 4px;
+  font-size: 0.875em;
+}
+
+.marku-block blockquote {
+  margin: 0;
+  padding: 0 1em;
+  min-height: 1.4em;
+  border-left: 4px solid var(--preview-blockquote-border, #d0ccc8);
+  color: var(--preview-muted, #6b6560);
+}
+
+.marku-block blockquote p {
+  white-space: pre-line;
+  margin: 0;
+}
+
+/* Definition lists (term / `: definition`) - ENABLE_DEFINITION_LIST emits dl/dt/dd. */
+.marku-block dl {
+  margin: 0;
+}
+.marku-block dt {
+  font-weight: 600;
+}
+.marku-block dd {
+  margin: 0 0 0.3em 1.5em;
+}
+
+.marku-block table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0;
+  font-size: 0.9em;
+}
+
+.marku-block th,
+.marku-block td {
+  border: 1px solid var(--preview-border, #d0ccc8);
+  padding: 0.4em 0.8em;
+  text-align: left;
+}
+
+.marku-block th {
+  background: var(--preview-code-bg, #f0eeec);
+  font-weight: 600;
+}
+
+.marku-block tr:nth-child(even) td {
+  background: var(--preview-table-alt, #f7f5f3);
+}
+
+.marku-block a {
+  color: var(--preview-link, #0969da);
+  text-decoration: var(--preview-link-decoration, none);
+}
+
+.marku-block a:hover {
+  text-decoration: underline;
+}
+
+.marku-block:has(> hr) {
+  display: flex;
+  align-items: center;
+}
+
+.marku-block hr {
+  border: none;
+  border-top: 1px solid var(--preview-border, #e5e3e0);
+  margin: 0;
+  width: 100%;
+}
+
+/* Textarea (active block) */
+
+.marku-textarea {
+  display: block;
+  width: 100%;
+  resize: none;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: var(--code-font-family);
+  font-size: var(--code-font-size);
+  /* `normal`, not --code-line-height: the native textarea caret takes the
+     line-height as its height, and WebKit renders it differently on single-
+     vs multi-line content (snug ~font height vs full line box). `normal` keeps
+     the caret one consistent height across all blocks (alerts/formulas too). */
+  line-height: normal;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+  color: inherit;
+  caret-color: var(--preview-caret, #0969da);
+  min-height: 24px;
+  -webkit-text-size-adjust: none;
+}
+
+/* Prism token reset - prevent leaking outside code blocks */
+
+#editor-container .token:not(pre .token) {
+  color: inherit !important;
+  background: inherit !important;
+}
+
+/* Source view */
+
+#source-view {
+  flex: 1;
+  overflow-y: auto;
+  padding: 48px 0;
+  background: var(--ui-bg, #fafaf9);
+}
+
+#source-editor {
+  padding: 0 32px;
+}
+
+#source-editor .cm-editor {
+  font-family: var(--code-font-family);
+  font-size: var(--code-font-size);
+  line-height: var(--code-line-height);
+  outline: none;
+}
+
+#source-editor .cm-scroller {
+  font-family: inherit;
+  overflow: visible;
+}
+
+/* Keep the caret visible even when a theme's caret blends into the bg
+   (e.g. Eclipse ships a white caret on a white background). --preview-caret
+   already falls back to the text color in that case. */
+#source-editor .cm-cursor {
+  border-left-color: var(--preview-caret);
+}
+
+#source-editor .cm-activeLine,
+#source-editor .cm-activeLineGutter {
+  background-color: var(--preview-active-line);
+}
+
+#source-editor .cm-gutters.gutter-fade {
+  mask-image:
+    linear-gradient(to right, transparent 0, #000 10px, #000 calc(100% - 10px), transparent 100%),
+    linear-gradient(to bottom, transparent 0, #000 6px, #000 calc(100% - 6px), transparent 100%);
+  mask-composite: intersect;
+}
+
+#source-editor .cm-content {
+  padding: 8px 0;
+}
+
+/* Offset code from the line numbers via the gutter's margin, not .cm-content
+   padding: padding sat inside .cm-line, so the active-line highlight (a .cm-line
+   background) bled left of the text. Margin keeps the gap outside the gutter box,
+   so the gutter's fade mask is unaffected. */
+#source-editor .cm-gutters {
+  margin-right: 12px;
+}
+
+/* Find panel: pin it to the top-right of the window as a themed box, above the
+   scrolling content. Fixed (not sticky) because the whole Source View scrolls.
+   top = titlebar + tab bar heights; each variable goes to 0 when its chrome is
+   hidden, so the panel follows (incl. a future hide-tab-bar toggle). */
+#source-editor .cm-panels.cm-panels-top {
+  position: fixed !important;
+  top: calc(var(--titlebar-h, 40px) + var(--tabbar-h, 30px)) !important;
+  bottom: auto !important;
+  right: 16px !important;
+  left: auto !important;
+  margin: 0;
+  z-index: 50;
+  background: transparent;
+  border-bottom: none;
+  color: var(--ui-fg, #1a1918);
+  animation: search-panel-in 0.18s ease-out;
+}
+
+/* Slide in from the right edge when the find panel opens. */
+@keyframes search-panel-in {
+  from { transform: translateX(calc(100% + 16px)); }
+  to   { transform: translateX(0); }
+}
+
+/* Slide back out to the right on close (JS adds the class, then closes on end). */
+#source-editor .cm-panels.cm-panels-top.cm-search-closing {
+  animation: search-panel-out 0.18s ease-in forwards;
+}
+
+@keyframes search-panel-out {
+  from { transform: translateX(0); }
+  to   { transform: translateX(calc(100% + 16px)); }
+}
+
+#source-editor .cm-panel.cm-search {
+  background: var(--ui-bg, #fafaf9);
+  border: 1px solid color-mix(in srgb, var(--ui-fg, #1a1918) 18%, transparent);
+  border-right: none;
+  border-radius: 8px 0 0 8px; /* round the left corners; right side meets the window edge */
+  padding: 6px 8px 6px 26px;  /* room on the left for the close button */
+}
+
+/* Close button on the LEFT, in the tab-close colour. */
+#source-editor .cm-panel.cm-search [name="close"] {
+  right: auto;
+  left: 4px;
+  color: #c0bbb6;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+#source-editor .cm-panel.cm-search [name="close"]:hover {
+  color: #1a1918;
+}
+
+/* Rounded, themed action buttons (native ones ignore border-radius). */
+#source-editor .cm-panel.cm-search button:not([name="close"]) {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1px solid color-mix(in srgb, var(--ui-fg, #1a1918) 20%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--ui-fg, #1a1918) 6%, var(--ui-bg, #fff));
+  color: var(--ui-fg, #1a1918);
+  padding: 2px 10px;
+  cursor: pointer;
+}
+
+#source-editor .cm-panel.cm-search button:not([name="close"]):hover {
+  background: color-mix(in srgb, var(--ui-fg, #1a1918) 13%, var(--ui-bg, #fff));
+}
+
+#source-editor .cm-line {
+  padding: 0;
+}
+
+
+/* Save / confirm dialogs */
+
+#save-dialog,
+#confirm-dialog {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+#save-dialog[hidden],
+#confirm-dialog[hidden] { display: none; }
+
+#save-dialog-box,
+#confirm-dialog-box {
+  background: var(--ui-bg, #fafaf9);
+  color: var(--ui-fg, #1a1918);
+  border-radius: 12px;
+  padding: 24px 24px 16px;
+  width: 320px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+}
+
+#save-dialog-title,
+#confirm-dialog-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--ui-fg, #1a1918);
+  margin-bottom: 8px;
+}
+
+#save-dialog-message,
+#confirm-dialog-message {
+  font-size: 13px;
+  color: color-mix(in srgb, var(--ui-fg, #1a1918) 55%, transparent);
+  margin-bottom: 20px;
+  line-height: 1.4;
+}
+
+/* Buttons side by side, primary on the right (DOM lists primary first, so
+   row-reverse puts it last). */
+#save-dialog-buttons,
+#confirm-dialog-buttons {
+  display: flex;
+  flex-direction: row-reverse;
+  gap: 8px;
+}
+
+#save-dialog-buttons button,
+#confirm-dialog-buttons button {
+  flex: 1;
+  height: 36px;
+  border-radius: 8px;
+  border: none;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+#save-dialog-save,
+#confirm-dialog-ok {
+  background: var(--preview-caret, #0969da);
+  color: var(--ui-bg, #fff);
+  font-weight: 600;
+}
+
+#save-dialog-discard,
+#save-dialog-extra,
+#save-dialog-cancel,
+#confirm-dialog-cancel {
+  background: color-mix(in srgb, var(--ui-fg, #1a1918) 10%, transparent);
+  color: var(--ui-fg, #1a1918);
+}
+
+#save-dialog-discard:hover,
+#save-dialog-extra:hover,
+#save-dialog-cancel:hover,
+#confirm-dialog-cancel:hover {
+  background: color-mix(in srgb, var(--ui-fg, #1a1918) 18%, transparent);
+}
+
+/* Confirm dialog: caption in the accent color. */
+#confirm-dialog-message { color: var(--preview-caret); }
+
+/* Warning variant (external-change dialog): centered, multi-line title and body
+   (newlines in the text become real line breaks / a blank line between paragraphs). */
+/* Only the heading is centered. */
+#save-dialog.dialog-centered #save-dialog-title {
+  text-align: center;
+  margin-top: 8px;
+}
+
+/* Body stays left-aligned; newlines become a blank line between paragraphs. */
+#save-dialog.dialog-centered #save-dialog-message {
+  white-space: pre-line;
+  margin-top: 20px;
+}
+
+#save-dialog.dialog-centered #save-dialog-box { width: 380px; }
+
+/* Wider box for the 4-button close-conflict dialog so labels fit on one line. */
+#save-dialog.dialog-wide #save-dialog-box { width: 460px; }
+
+/* Lead line ("Warning!") above the heading, with breathing room below it. */
+#save-dialog.dialog-centered .dialog-lead {
+  font-size: 16px;
+  margin-bottom: 12px;
+}
+
+/* Recent files modal */
+
+#recent-modal {
+  position: fixed;
+  top: 40px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+#recent-modal[hidden] { display: none; }
+
+#recent-modal-box {
+  background: var(--ui-bg, #fafaf9);
+  color: var(--ui-fg, #1a1918);
+  border-radius: 12px;
+  width: 480px;
+  max-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+
+#recent-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px 12px;
+  font-weight: 600;
+  font-size: 14px;
+  border-bottom: 1px solid color-mix(in srgb, var(--ui-fg, #1a1918) 15%, transparent);
+}
+
+#recent-modal-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  color: color-mix(in srgb, var(--ui-fg, #1a1918) 40%, transparent);
+  padding: 0;
+  line-height: 1;
+}
+
+#recent-modal-close:hover { color: var(--ui-fg, #1a1918); }
+
+#recent-list {
+  list-style: none;
+  margin: 0;
+  padding: 8px 0;
+  overflow-y: auto;
+}
+
+#recent-list li {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 8px 20px;
+  cursor: pointer;
+  gap: 2px;
+}
+
+.recent-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* Highlight follows keyboard focus only; hovering moves focus (see main.ts),
+   so exactly one item is ever highlighted - no stale :hover under a hidden
+   cursor competing with the arrow-key selection. */
+#recent-list li:focus { background: color-mix(in srgb, var(--ui-fg, #1a1918) 8%, transparent); }
+
+#recent-list li:focus { outline: none; }
+
+.recent-name {
+  font-size: 13px;
+  color: var(--ui-fg, #1a1918);
+}
+
+.recent-dir {
+  font-size: 11px;
+  color: color-mix(in srgb, var(--ui-fg, #1a1918) 50%, transparent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.recent-remove {
+  margin-left: auto;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: color-mix(in srgb, var(--ui-fg, #1a1918) 30%, transparent);
+  font-size: 16px;
+  padding: 0 4px;
+  line-height: 1;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+#recent-list li:hover .recent-remove,
+#recent-list li:focus .recent-remove {
+  opacity: 1;
+}
+
+.recent-remove:hover {
+  color: var(--ui-fg, #1a1918);
+}
+
+.recent-empty {
+  padding: 16px 20px;
+  color: #a09c97;
+  font-size: 13px;
+  cursor: default !important;
+}
+
+.recent-empty:hover { background: transparent !important; }
+
+
+/* Status bar */
+
+#status-bar {
+  background: var(--ui-bg, #fafaf9);
+  color: color-mix(in srgb, var(--ui-fg, #1a1918) 50%, transparent);
+  height: 30px;
+  padding: 0 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  user-select: none;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+#status-left {
+  display: flex;
+  gap: 16px;
+}
+
+/* GitHub-style alerts (> [!NOTE] etc.) - pulldown ENABLE_GFM emits
+   blockquote.markdown-alert-*. Colored left border + title with an inline
+   Octicon, light/dark palette via html.theme-dark. AUTO-GENERATED by gen-alerts.cjs. */
+.marku-block blockquote.markdown-alert-note,
+.marku-block blockquote.markdown-alert-tip,
+.marku-block blockquote.markdown-alert-important,
+.marku-block blockquote.markdown-alert-warning,
+.marku-block blockquote.markdown-alert-caution {
+  border-left: 0.25em solid var(--alert-color);
+  padding: 0.4em 0.9em;
+  margin: 12px 0;
+  border-radius: 0 6px 6px 0;
+  color: var(--ui-fg, #1a1918);
+}
+.marku-block blockquote.markdown-alert-note::before,
+.marku-block blockquote.markdown-alert-tip::before,
+.marku-block blockquote.markdown-alert-important::before,
+.marku-block blockquote.markdown-alert-warning::before,
+.marku-block blockquote.markdown-alert-caution::before {
+  content: var(--alert-label);
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  color: var(--alert-color);
+  margin-bottom: 0.3em;
+  min-height: 1em;
+  padding-left: 1.5em;
+  background: var(--alert-icon) no-repeat left center;
+  background-size: 1em 1em;
+}
+.marku-block blockquote.markdown-alert-note { --alert-color: #0969da; --alert-label: "Note"; --alert-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2016%2016%22%20width%3D%2216%22%20height%3D%2216%22%20fill%3D%22%230969da%22%3E%3Cpath%20d%3D%22M0%208a8%208%200%201%201%2016%200A8%208%200%200%201%200%208Zm8-6.5a6.5%206.5%200%201%200%200%2013%206.5%206.5%200%200%200%200-13ZM6.5%207.75A.75.75%200%200%201%207.25%207h1a.75.75%200%200%201%20.75.75v2.75h.25a.75.75%200%200%201%200%201.5h-2a.75.75%200%200%201%200-1.5h.25v-2h-.25a.75.75%200%200%201-.75-.75ZM8%206a1%201%200%201%201%200-2%201%201%200%200%201%200%202Z%22%2F%3E%3C%2Fsvg%3E"); }
+.marku-block blockquote.markdown-alert-tip { --alert-color: #1a7f37; --alert-label: "Tip"; --alert-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2016%2016%22%20width%3D%2216%22%20height%3D%2216%22%20fill%3D%22%231a7f37%22%3E%3Cpath%20d%3D%22M8%201.5c-2.363%200-4%201.69-4%203.75%200%20.984.424%201.625.984%202.304l.214.253c.223.264.47.556.673.848.284.411.537.896.621%201.49a.75.75%200%200%201-1.484.211c-.04-.282-.163-.547-.37-.847a8.456%208.456%200%200%200-.542-.68c-.084-.1-.173-.205-.268-.32C3.201%207.75%202.5%206.766%202.5%205.25%202.5%202.31%204.863%200%208%200s5.5%202.31%205.5%205.25c0%201.516-.701%202.5-1.328%203.259-.095.115-.184.22-.268.319-.207.245-.383.453-.541.681-.208.3-.33.565-.37.847a.751.751%200%200%201-1.485-.212c.084-.593.337-1.078.621-1.489.203-.292.45-.584.673-.848.075-.088.147-.173.213-.253.561-.679.985-1.32.985-2.304%200-2.06-1.637-3.75-4-3.75ZM5.75%2012h4.5a.75.75%200%200%201%200%201.5h-4.5a.75.75%200%200%201%200-1.5ZM6%2015.25a.75.75%200%200%201%20.75-.75h2.5a.75.75%200%200%201%200%201.5h-2.5a.75.75%200%200%201-.75-.75Z%22%2F%3E%3C%2Fsvg%3E"); }
+.marku-block blockquote.markdown-alert-important { --alert-color: #8250df; --alert-label: "Important"; --alert-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2016%2016%22%20width%3D%2216%22%20height%3D%2216%22%20fill%3D%22%238250df%22%3E%3Cpath%20d%3D%22M0%201.75C0%20.784.784%200%201.75%200h12.5C15.216%200%2016%20.784%2016%201.75v9.5A1.75%201.75%200%200%201%2014.25%2013H8.06l-2.573%202.573A1.458%201.458%200%200%201%203%2014.543V13H1.75A1.75%201.75%200%200%201%200%2011.25Zm1.75-.25a.25.25%200%200%200-.25.25v9.5c0%20.138.112.25.25.25h2a.75.75%200%200%201%20.75.75v2.19l2.72-2.72a.749.749%200%200%201%20.53-.22h6.5a.25.25%200%200%200%20.25-.25v-9.5a.25.25%200%200%200-.25-.25Zm7%202.25v2.5a.75.75%200%200%201-1.5%200v-2.5a.75.75%200%200%201%201.5%200ZM9%209a1%201%200%201%201-2%200%201%201%200%200%201%202%200Z%22%2F%3E%3C%2Fsvg%3E"); }
+.marku-block blockquote.markdown-alert-warning { --alert-color: #9a6700; --alert-label: "Warning"; --alert-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2016%2016%22%20width%3D%2216%22%20height%3D%2216%22%20fill%3D%22%239a6700%22%3E%3Cpath%20d%3D%22M6.457%201.047c.659-1.234%202.427-1.234%203.086%200l6.082%2011.378A1.75%201.75%200%200%201%2014.082%2015H1.918a1.75%201.75%200%200%201-1.543-2.575Zm1.763.707a.25.25%200%200%200-.44%200L1.698%2013.132a.25.25%200%200%200%20.22.368h12.164a.25.25%200%200%200%20.22-.368Zm.53%203.996v2.5a.75.75%200%200%201-1.5%200v-2.5a.75.75%200%200%201%201.5%200ZM9%2011a1%201%200%201%201-2%200%201%201%200%200%201%202%200Z%22%2F%3E%3C%2Fsvg%3E"); }
+.marku-block blockquote.markdown-alert-caution { --alert-color: #cf222e; --alert-label: "Caution"; --alert-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2016%2016%22%20width%3D%2216%22%20height%3D%2216%22%20fill%3D%22%23cf222e%22%3E%3Cpath%20d%3D%22M4.47.22A.749.749%200%200%201%205%200h6c.199%200%20.389.079.53.22l4.25%204.25c.141.14.22.331.22.53v6a.749.749%200%200%201-.22.53l-4.25%204.25A.749.749%200%200%201%2011%2016H5a.749.749%200%200%201-.53-.22L.22%2011.53A.749.749%200%200%201%200%2011V5c0-.199.079-.389.22-.53Zm.84%201.28L1.5%205.31v5.38l3.81%203.81h5.38l3.81-3.81V5.31L10.69%201.5ZM8%204a.75.75%200%200%201%20.75.75v3.5a.75.75%200%200%201-1.5%200v-3.5A.75.75%200%200%201%208%204Zm0%208a1%201%200%201%201%200-2%201%201%200%200%201%200%202Z%22%2F%3E%3C%2Fsvg%3E"); }
+html.theme-dark .marku-block blockquote.markdown-alert-note { --alert-color: #4493f8; --alert-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2016%2016%22%20width%3D%2216%22%20height%3D%2216%22%20fill%3D%22%234493f8%22%3E%3Cpath%20d%3D%22M0%208a8%208%200%201%201%2016%200A8%208%200%200%201%200%208Zm8-6.5a6.5%206.5%200%201%200%200%2013%206.5%206.5%200%200%200%200-13ZM6.5%207.75A.75.75%200%200%201%207.25%207h1a.75.75%200%200%201%20.75.75v2.75h.25a.75.75%200%200%201%200%201.5h-2a.75.75%200%200%201%200-1.5h.25v-2h-.25a.75.75%200%200%201-.75-.75ZM8%206a1%201%200%201%201%200-2%201%201%200%200%201%200%202Z%22%2F%3E%3C%2Fsvg%3E"); }
+html.theme-dark .marku-block blockquote.markdown-alert-tip { --alert-color: #3fb950; --alert-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2016%2016%22%20width%3D%2216%22%20height%3D%2216%22%20fill%3D%22%233fb950%22%3E%3Cpath%20d%3D%22M8%201.5c-2.363%200-4%201.69-4%203.75%200%20.984.424%201.625.984%202.304l.214.253c.223.264.47.556.673.848.284.411.537.896.621%201.49a.75.75%200%200%201-1.484.211c-.04-.282-.163-.547-.37-.847a8.456%208.456%200%200%200-.542-.68c-.084-.1-.173-.205-.268-.32C3.201%207.75%202.5%206.766%202.5%205.25%202.5%202.31%204.863%200%208%200s5.5%202.31%205.5%205.25c0%201.516-.701%202.5-1.328%203.259-.095.115-.184.22-.268.319-.207.245-.383.453-.541.681-.208.3-.33.565-.37.847a.751.751%200%200%201-1.485-.212c.084-.593.337-1.078.621-1.489.203-.292.45-.584.673-.848.075-.088.147-.173.213-.253.561-.679.985-1.32.985-2.304%200-2.06-1.637-3.75-4-3.75ZM5.75%2012h4.5a.75.75%200%200%201%200%201.5h-4.5a.75.75%200%200%201%200-1.5ZM6%2015.25a.75.75%200%200%201%20.75-.75h2.5a.75.75%200%200%201%200%201.5h-2.5a.75.75%200%200%201-.75-.75Z%22%2F%3E%3C%2Fsvg%3E"); }
+html.theme-dark .marku-block blockquote.markdown-alert-important { --alert-color: #ab7df8; --alert-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2016%2016%22%20width%3D%2216%22%20height%3D%2216%22%20fill%3D%22%23ab7df8%22%3E%3Cpath%20d%3D%22M0%201.75C0%20.784.784%200%201.75%200h12.5C15.216%200%2016%20.784%2016%201.75v9.5A1.75%201.75%200%200%201%2014.25%2013H8.06l-2.573%202.573A1.458%201.458%200%200%201%203%2014.543V13H1.75A1.75%201.75%200%200%201%200%2011.25Zm1.75-.25a.25.25%200%200%200-.25.25v9.5c0%20.138.112.25.25.25h2a.75.75%200%200%201%20.75.75v2.19l2.72-2.72a.749.749%200%200%201%20.53-.22h6.5a.25.25%200%200%200%20.25-.25v-9.5a.25.25%200%200%200-.25-.25Zm7%202.25v2.5a.75.75%200%200%201-1.5%200v-2.5a.75.75%200%200%201%201.5%200ZM9%209a1%201%200%201%201-2%200%201%201%200%200%201%202%200Z%22%2F%3E%3C%2Fsvg%3E"); }
+html.theme-dark .marku-block blockquote.markdown-alert-warning { --alert-color: #d29922; --alert-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2016%2016%22%20width%3D%2216%22%20height%3D%2216%22%20fill%3D%22%23d29922%22%3E%3Cpath%20d%3D%22M6.457%201.047c.659-1.234%202.427-1.234%203.086%200l6.082%2011.378A1.75%201.75%200%200%201%2014.082%2015H1.918a1.75%201.75%200%200%201-1.543-2.575Zm1.763.707a.25.25%200%200%200-.44%200L1.698%2013.132a.25.25%200%200%200%20.22.368h12.164a.25.25%200%200%200%20.22-.368Zm.53%203.996v2.5a.75.75%200%200%201-1.5%200v-2.5a.75.75%200%200%201%201.5%200ZM9%2011a1%201%200%201%201-2%200%201%201%200%200%201%202%200Z%22%2F%3E%3C%2Fsvg%3E"); }
+html.theme-dark .marku-block blockquote.markdown-alert-caution { --alert-color: #f85149; --alert-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2016%2016%22%20width%3D%2216%22%20height%3D%2216%22%20fill%3D%22%23f85149%22%3E%3Cpath%20d%3D%22M4.47.22A.749.749%200%200%201%205%200h6c.199%200%20.389.079.53.22l4.25%204.25c.141.14.22.331.22.53v6a.749.749%200%200%201-.22.53l-4.25%204.25A.749.749%200%200%201%2011%2016H5a.749.749%200%200%201-.53-.22L.22%2011.53A.749.749%200%200%201%200%2011V5c0-.199.079-.389.22-.53Zm.84%201.28L1.5%205.31v5.38l3.81%203.81h5.38l3.81-3.81V5.31L10.69%201.5ZM8%204a.75.75%200%200%201%20.75.75v3.5a.75.75%200%200%201-1.5%200v-3.5A.75.75%200%200%201%208%204Zm0%208a1%201%200%201%201%200-2%201%201%200%200%201%200%202Z%22%2F%3E%3C%2Fsvg%3E"); }

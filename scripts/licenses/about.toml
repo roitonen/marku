@@ -1,0 +1,36 @@
+# cargo-about config for THIRD_PARTY_LICENSES generation.
+# `accepted` is the allowlist gate: a crate whose license is not listed here
+# makes generation fail (so a new GPL/AGPL dependency is caught before release).
+accepted = [
+    "MIT",
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "Unlicense",
+    "MPL-2.0",
+    "Unicode-3.0",
+    "Apache-2.0 WITH LLVM-exception",
+]
+
+# One combined graph across every shipped triple, so the listing covers
+# platform-specific crates too. A superset of notices is acceptable; gaps are not.
+targets = [
+    "x86_64-apple-darwin",
+    "aarch64-apple-darwin",
+    "x86_64-pc-windows-msvc",
+    "x86_64-unknown-linux-gnu",
+]
+
+# Skip our own unpublished workspace crate (it ships no third-party license).
+[private]
+ignore = true
+
+# Manual license clarifications for crates cargo-about cannot resolve on its own.
+# Fill in as the "manual UNKNOWN lookup" step turns them up:
+#   [clarifications.<crate>]
+#   license = "MIT"
+#   [[clarifications.<crate>.files]]
+#   path = "LICENSE"
+#   checksum = "<sha256>"

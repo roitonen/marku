@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Marku</title>
+    <script>
+      try {
+        const v = JSON.parse(localStorage.getItem('marku-theme-cache') || '{}');
+        const r = document.documentElement;
+        for (const [k, val] of Object.entries(v)) {
+          if (k.startsWith('--')) r.style.setProperty(k, val);
+        }
+        if (v.body_bg) r.style.setProperty('background', v.body_bg);
+      } catch(e) {}
+      // Custom titlebar is for macOS (transparent + overlay). On Windows/Linux
+      // the window is natively decorated, so hide our titlebar via this class.
+      if (!/Mac/.test(navigator.platform)) document.documentElement.classList.add('native-titlebar');
+      document.documentElement.style.opacity = '0';
+    </script>
+    <link rel="stylesheet" href="/src/styles.css" />
+    <link rel="stylesheet" href="/node_modules/katex/dist/katex.min.css" />
+    <script type="module" src="/src/main.ts" defer></script>
+  </head>
+  <body>
+    <div id="app">
+      <div id="titlebar" data-tauri-drag-region>
+        <span id="window-title">Marku</span>
+      </div>
+      <div id="tab-bar">
+        <button id="new-tab-btn">+</button>
+        <div id="tabs-list"></div>
+      </div>
+      <div id="editor-container">
+        <div class="markdown-body" id="document"></div>
+      </div>
+      <div id="source-view" hidden>
+        <div id="source-editor"></div>
+      </div>
+
+      <!-- Save dialog -->
+      <div id="save-dialog" hidden>
+        <div id="save-dialog-box">
+          <div id="save-dialog-title"></div>
+          <div id="save-dialog-message">Your changes will be lost if you don't save them.</div>
+          <div id="save-dialog-buttons">
+            <button id="save-dialog-save">Save</button>
+            <button id="save-dialog-discard">Don't Save</button>
+            <button id="save-dialog-extra" hidden></button>
+            <button id="save-dialog-cancel">Cancel</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Generic confirm dialog (themed) -->
+      <div id="confirm-dialog" hidden>
+        <div id="confirm-dialog-box">
+          <div id="confirm-dialog-title"></div>
+          <div id="confirm-dialog-message"></div>
+          <div id="confirm-dialog-buttons">
+            <button id="confirm-dialog-ok"></button>
+            <button id="confirm-dialog-cancel"></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent files modal -->
+      <div id="recent-modal" hidden>
+        <div id="recent-modal-box">
+          <div id="recent-modal-header" data-tauri-drag-region>
+            <span>Recent Files</span>
+            <button id="recent-modal-close">×</button>
+          </div>
+          <ul id="recent-list"></ul>
+        </div>
+      </div>
+
+
+      <div id="status-bar">
+        <div id="status-left">
+          <span id="status-mode">P</span>
+          <span id="status-ln"></span>
+          <span id="status-col"></span>
+        </div>
+        <span id="status-stats"></span>
+      </div>
+    </div>
+  </body>
+</html>
