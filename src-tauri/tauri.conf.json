@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Marku",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "identifier": "app.marku",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -32,7 +32,10 @@
     ],
     "fileAssociations": [
       {
-        "ext": ["md", "markdown"],
+        "ext": [
+          "md",
+          "markdown"
+        ],
         "name": "Markdown Document",
         "role": "Editor"
       }
