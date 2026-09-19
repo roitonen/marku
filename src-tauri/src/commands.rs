@@ -4,6 +4,7 @@
 use crate::parser::{BlockDto, BlockKind, parse_blocks, render_block_html, toggle_task_marker};
 use crate::window::show_settings_window;
 use serde::Serialize;
+use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use tauri::{Emitter, Manager};
 
@@ -13,8 +14,18 @@ pub(crate) static QUITTING: AtomicBool = AtomicBool::new(false);
 /// Bumped per atomic save to give each temp file a unique name.
 static TMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 
+/// Paths macOS asked us to open (Finder double-click / Open With) that the
+/// frontend has not taken yet. Kept here so a cold start does not lose them
+/// when the event arrives before the frontend has registered its listener.
+pub(crate) static PENDING_OPENS: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
 fn next_id() -> u64 {
     NEXT_ID.fetch_add(1, Ordering::Relaxed)
+}
+
+#[tauri::command]
+pub fn take_opened_files() -> Vec<String> {
+    std::mem::take(&mut *PENDING_OPENS.lock().unwrap())
 }
 
 // Read a file, tagging a missing-file error with a stable `NOT_FOUND:` prefix so

@@ -29,6 +29,13 @@
     ],
     "resources": [
       "THIRD_PARTY_LICENSES"
+    ],
+    "fileAssociations": [
+      {
+        "ext": ["md", "markdown"],
+        "name": "Markdown Document",
+        "role": "Editor"
+      }
     ]
   }
 }

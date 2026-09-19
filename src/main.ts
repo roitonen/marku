@@ -118,6 +118,22 @@ window.addEventListener('DOMContentLoaded', async () => {
       }
     }
   });
+  // Files macOS asked us to open (Finder double-click / Open With). On a cold
+  // start they are already queued in Rust, so drain once now and again on each event.
+  const openSystemFiles = async () => {
+    const paths = await invoke<string[]>('take_opened_files');
+    for (const path of paths) {
+      try {
+        const content = await invoke<string>('read_file', { path });
+        await openFilePath(path, content);
+      } catch (e) {
+        await showOpenError(path, e);
+      }
+    }
+  };
+  await listen('opened', openSystemFiles);
+  await openSystemFiles();
+
   await listen('settings-changed', async () => {
     const prevEscape = app.settings.escapeUnsafeHtml;
     app.settings = await loadSettings();

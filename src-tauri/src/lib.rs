@@ -173,17 +173,31 @@ pub fn run() {
             commands::reset_main_window,
             menu::set_word_wrap_menu,
             commands::quit_app,
+            commands::take_opened_files,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
-        .run(|app, event| {
+        .run(|app, event| match event {
             // Intercept quit (Cmd+Q): let the frontend prompt to save unsaved
             // tabs first. quit_app sets QUITTING and re-triggers the exit.
-            if let tauri::RunEvent::ExitRequested { api, .. } = event
-                && !commands::QUITTING.load(Ordering::Relaxed)
+            tauri::RunEvent::ExitRequested { api, .. }
+                if !commands::QUITTING.load(Ordering::Relaxed) =>
             {
                 api.prevent_exit();
                 let _ = app.emit("quit-requested", ());
             }
+            // Finder double-click / Open With. The path is stored first because on
+            // a cold start this fires before the frontend listens; the event only
+            // tells an already running frontend to drain the list.
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            tauri::RunEvent::Opened { urls } => {
+                let paths = urls
+                    .iter()
+                    .filter_map(|u| u.to_file_path().ok())
+                    .map(|p| p.to_string_lossy().into_owned());
+                commands::PENDING_OPENS.lock().unwrap().extend(paths);
+                let _ = app.emit_to("main", "opened", ());
+            }
+            _ => {}
         });
 }
