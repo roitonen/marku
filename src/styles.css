@@ -239,6 +239,15 @@ html.native-titlebar #titlebar { display: none; }
   margin-top: 0.15em;
 }
 
+.marku-block img {
+  max-width: 100%;
+  height: auto;
+}
+
+.marku-block li:has(> input[data-marku-task-index]) {
+  list-style: none;
+}
+
 .marku-block input[type="checkbox"] {
   margin-right: 0.4em;
   accent-color: var(--preview-checkbox);
