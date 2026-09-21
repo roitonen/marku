@@ -9,7 +9,7 @@ import { applyPreviewTheme } from './preview-theme';
 import { applyPrismTheme } from './prism-theme';
 import { app } from './state';
 import {
-  makeTab, newTab, openFile, openFilePath, saveFile, saveFileAs,
+  makeTab, dirName, newTab, openFile, openFilePath, saveFile, saveFileAs,
   closeTab, renderTabBar, switchToTab, switchToAdjacentTab, showOpenError, openHelpDoc,
 } from './tabs';
 import { showRecentFiles } from './recent-modal';
@@ -48,6 +48,10 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   app.editor = new Editor(container, statusLn, statusCol, statusStats);
   app.editor.onExitSourceView = () => applyPreviewTheme(app.settings.codeTheme);
+  app.editor.getBaseDir = () => {
+    const path = app.tabs.find(t => t.id === app.activeTabId)?.path;
+    return path ? dirName(path) : null;
+  };
   app.editor.setWordWrap(app.settings.wordWrap);
   // Sync the native menu checkmark to the loaded value: on first launch or a
   // missing/corrupt settings.json the frontend falls back to its own default,

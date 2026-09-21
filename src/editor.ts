@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core';
+import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import katex from 'katex';
 import mermaid from 'mermaid';
@@ -43,6 +43,9 @@ export class Editor {
   private cmSaved: EditorState | null = null;
   private readonly sourceView: SourceView;
   onExitSourceView: (() => void) | null = null;
+  // Directory of the open .md file (null for an unsaved / path-less tab); local
+  // image paths are resolved against it.
+  getBaseDir: (() => string | null) | null = null;
 
   applyUIColors() {
     this.sourceView.applyUIColors();
@@ -591,6 +594,7 @@ export class Editor {
     el.className = 'marku-block' + (block.kind === 'emptyLine' ? ' empty-line' : '');
     el.innerHTML = block.html;
     this.enableCheckboxes(el);
+    this.resolveLocalImages(el);
     // While building a not-yet-inserted element (renderAll, replaceBlockRange)
     // the document pass runs after insertion; for an in-place repaint it runs now.
     if (el.isConnected) this.assignHeadingIds();
@@ -710,6 +714,29 @@ export class Editor {
     // and is left alone.
     el.querySelectorAll('input[data-marku-task-index]').forEach(cb => {
       (cb as HTMLInputElement).removeAttribute('disabled');
+    });
+  }
+
+  // Point local <img> sources (relative or file://) at the asset protocol,
+  // resolved against the open file's directory. http(s), data: and asset: URLs
+  // are left alone.
+  private resolveLocalImages(el: HTMLElement) {
+    el.querySelectorAll('img').forEach(img => {
+      const src = img.getAttribute('src');
+      if (!src) return;
+      let path: string;
+      if (/^file:\/\//i.test(src)) {
+        path = decodeURIComponent(new URL(src).pathname);
+        if (/^\/[A-Za-z]:/.test(path)) path = path.slice(1);
+      } else if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(src) || src.startsWith('//')) {
+        return;
+      } else {
+        const base = this.getBaseDir?.();
+        if (!base) return;
+        const rel = decodeURIComponent(src.split(/[?#]/)[0]);
+        path = rel.startsWith('/') ? rel : `${base}/${rel}`;
+      }
+      img.setAttribute('src', convertFileSrc(path));
     });
   }
 
